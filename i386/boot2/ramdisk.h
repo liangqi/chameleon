@@ -8,14 +8,6 @@
 #define __BOOT_RAMDISK_H
 
 #define RAMDISKCONFIG_FILENAME "rd(0,0)/RAMDisk.plist"
-//#define kPostbootRamdisk
-void md0Ramdisk();
-
-typedef struct RAMDiskParam
-{
-	ppnum_t base;
-	unsigned int size;
-} RAMDiskParam;
 
 /* mboot.c */
 extern struct multiboot_info *gMI;
@@ -26,9 +18,9 @@ extern int multiboot_get_ramdisk_info(int biosdev, struct driveInfo *dip);
 //
 
 extern BVRef gRAMDiskVolume;
-extern bool gRAMDiskBTAliased;
+extern BOOL gRAMDiskBTAliased;
 
-extern void setRAMDiskBTHook(bool mode);
+extern void setRAMDiskBTHook(BOOL mode);
 extern int mountRAMDisk(const char * param);
 extern void processRAMDiskCommand(char ** argPtr, const char * cmd);
 extern int loadPrebootRAMDisk();

@@ -19,6 +19,8 @@
 #define DEFAULT_SCREEN_HEIGHT 768
 
 int loadPngImage(const char *filename, uint16_t *width, uint16_t *height, uint8_t **imageData);
+int loadPixmapFromPng(const char *filename, pixmap_t *p);
+int loadPixmapFromEmbeddedPng(uint8_t *pngData, uint32_t pngSize, pixmap_t *p);
 
 unsigned long lookUpCLUTIndex( unsigned char index, unsigned char depth );
 
@@ -37,7 +39,7 @@ void blendImage(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t
 
 int loadEmbeddedPngImage(uint8_t *pngData, int pngSize, uint16_t *width, uint16_t *height, uint8_t **imageData);
 
-uint32_t getVBEVideoRam();
+
 char *getVBEInfoString();
 char *getVBEModeInfoString();
 void getGraphicModeParams(unsigned long params[]);

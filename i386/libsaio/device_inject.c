@@ -6,12 +6,10 @@
  */
 
 #include "libsaio.h"
-#include "boot.h"
 #include "bootstruct.h"
 #include "pci.h"
-#include "pci_root.h"
 #include "device_inject.h"
-#include "convert.h"
+
 
 #ifndef DEBUG_INJECT
 #define DEBUG_INJECT 0
@@ -31,12 +29,88 @@ uint32_t stringlength = 0;
 
 char *efi_inject_get_devprop_string(uint32_t *len)
 {
-	if(string) {
+	if(string)
+	{
 		*len = string->length;
 		return devprop_generate_string(string);
 	}
-	verbose("efi_inject_get_devprop_string NULL trying stringdata\n");
+	printf("efi_inject_get_devprop_string NULL trying stringdata\n");
 	return NULL;
+}
+
+uint32_t ascii_hex_to_int(char *buff) 
+{
+	uint32_t	value = 0, i, digit;
+	for(i = 0; i < strlen(buff); i++)
+	{
+		if (buff[i] >= 48 && buff[i] <= 57)			// '0' through '9'
+			digit = buff[i] - 48;	
+		else if (buff[i] >= 65 && buff[i] <= 70)	// 'A' through 'F'
+			digit = buff[i] - 55;
+		else if (buff[i] >= 97 && buff[i] <= 102)	// 'a' through 'f'
+			digit = buff[i] - 87;
+		else
+			return value;
+		
+		value = digit + 16 * value;
+	}
+	return	value;
+}
+
+void *convertHexStr2Binary(const char *hexStr, int *outLength)
+{
+  int len;
+  char hexNibble;
+  char hexByte[2];
+  uint8_t binChar;
+  uint8_t *binStr;
+  int hexStrIdx, binStrIdx, hexNibbleIdx;
+
+  len = strlen(hexStr);
+  if (len > 1)
+  {
+    // the resulting binary will be the half size of the input hex string
+    binStr = malloc(len / 2);
+    binStrIdx = 0;
+    hexNibbleIdx = 0;
+    for (hexStrIdx = 0; hexStrIdx < len; hexStrIdx++)
+    {
+      hexNibble = hexStr[hexStrIdx];
+      
+      // ignore all chars except valid hex numbers
+      if (hexNibble >= '0' && hexNibble <= '9'
+        || hexNibble >= 'A' && hexNibble <= 'F'
+        || hexNibble >= 'a' && hexNibble <= 'f')
+      {
+        hexByte[hexNibbleIdx++] = hexNibble;
+        
+        // found both two nibbles, convert to binary
+        if (hexNibbleIdx == 2)
+        {
+          binChar = 0;
+          
+          for (hexNibbleIdx = 0; hexNibbleIdx < sizeof(hexByte); hexNibbleIdx++)
+          {
+            if (hexNibbleIdx > 0) binChar = binChar << 4;
+            
+            if (hexByte[hexNibbleIdx] <= '9') binChar += hexByte[hexNibbleIdx] - '0';
+            else if (hexByte[hexNibbleIdx] <= 'F') binChar += hexByte[hexNibbleIdx] - ('A' - 10);
+            else if (hexByte[hexNibbleIdx] <= 'f') binChar += hexByte[hexNibbleIdx] - ('a' - 10);
+          }
+          
+          binStr[binStrIdx++] = binChar;						
+          hexNibbleIdx = 0;
+        }
+      }
+    }
+    *outLength = binStrIdx;
+    return binStr;
+  }
+  else
+  {
+    *outLength = 0;
+    return NULL;
+  }
 }
 
 void setupDeviceProperties(Node *node)
@@ -55,7 +129,7 @@ void setupDeviceProperties(Node *node)
   /* Use the static "device-properties" boot config key contents if available,
    * otheriwse use the generated one.
    */  
-  if (!getValueForKey(kDeviceProperties, &val, &cnt, &bootInfo->chameleonConfig) && string)
+  if (!getValueForKey(DEVICE_PROPERTIES_PROP, &val, &cnt, &bootInfo->bootConfig) && string)
   {
     val = (const char*)string;
     cnt = strlength * 2;
@@ -67,6 +141,19 @@ void setupDeviceProperties(Node *node)
     if (cnt2 > 0) DT__AddProperty(node, DEVICE_PROPERTIES_PROP, cnt2, binStr);
   }
 }
+
+uint16_t dp_swap16(uint16_t toswap)
+{
+	return (((toswap & 0x00FF) << 8) | ((toswap & 0xFF00) >> 8));
+}
+
+uint32_t dp_swap32(uint32_t toswap)
+{
+	return  ((toswap & 0x000000FF) << 24) |
+			((toswap & 0x0000FF00) << 8 ) |
+			((toswap & 0x00FF0000) >> 8 ) |
+			((toswap & 0xFF000000) >> 24);
+}	
 
 struct DevPropString *devprop_create_string(void)
 {
@@ -83,29 +170,41 @@ struct DevPropString *devprop_create_string(void)
  
 struct DevPropDevice *devprop_add_device(struct DevPropString *string, char *path)
 {
-	struct DevPropDevice	*device;
-	const char		pciroot_string[] = "PciRoot(0x";
-	const char		pci_device_string[] = "Pci(0x";
+	uint32_t PciRootID = 0;
+	const char *val;
+	int len;
 
-	if (string == NULL || path == NULL) {
+	struct DevPropDevice *device = (struct DevPropDevice*)malloc(sizeof(struct DevPropDevice));
+	if(!device || !string || !path) {
+		if(device)
+			free(device);
 		return NULL;
 	}
-	device = malloc(sizeof(struct DevPropDevice));
 
-	if (strncmp(path, pciroot_string, strlen(pciroot_string))) {
+	const char pciroot_string[]		= "PciRoot(0x";
+	const char pci_device_string[]	= "Pci(0x";
+
+	if (getValueForKey("PciRoot", &val, &len, &bootInfo->bootConfig))
+	  PciRootID = atoi(val);
+	
+	if(strncmp(path, pciroot_string, strlen(pciroot_string)))
+	{
 		printf("ERROR parsing device path\n");
 		return NULL;
 	}
-
+	
 	memset(device, 0, sizeof(struct DevPropDevice));
-	device->acpi_dev_path._UID = getPciRootUID();
-
+	
+	device->acpi_dev_path._UID = PciRootID;
+	
 	int numpaths = 0;
 	int		x, curr = 0;
 	char	buff[] = "00";
 
-	for (x = 0; x < strlen(path); x++) {
-		if (!strncmp(&path[x], pci_device_string, strlen(pci_device_string))) {
+	for(x = 0; x < strlen(path); x++)
+	{
+		if(!strncmp(&path[x], pci_device_string, strlen(pci_device_string)))
+		{
 			x+=strlen(pci_device_string);
 			curr=x;
 			while(path[++x] != ',');
@@ -171,7 +270,7 @@ struct DevPropDevice *devprop_add_device(struct DevPropString *string, char *pat
 	string->length += device->length;
 	
 	if(!string->entries)
-		if((string->entries = (struct DevPropDevice**)malloc(sizeof(device)*DEV_PROP_DEVICE_MAX_ENTRIES))== NULL)
+		if((string->entries = (struct DevPropDevice**)malloc(sizeof(device)))== NULL)
 			return 0;
 	
 	string->entries[string->numentries++] = (struct DevPropDevice*)malloc(sizeof(device));

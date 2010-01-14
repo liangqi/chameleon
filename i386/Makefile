@@ -1,29 +1,48 @@
+
 #	Makefile for i386 boot program
+#	define FLOPPY and SMALL using DEFINES macro as necessary
+
+CFLAGS	= -O $(MORECPP) -arch i386 -g -static
+DEFINES=
+CONFIG = hd
+LIBDIR = libsa
+INC = -I. -I$(LIBDIR)
+ifneq "" "$(wildcard /bin/mkdirs)"
+  MKDIRS = /bin/mkdirs
+else
+  MKDIRS = /bin/mkdir -p
+endif
+AS = as
+LD = ld
 
 #
 # these paths are only valid in subdirectories of this directory
 #
-SRCROOT = $(abspath $(CURDIR)/..)
-BINROOT = $(SRCROOT)/bin
-OBJROOT = $(SRCROOT)/obj/i386
-SYMROOT = $(SRCROOT)/sym/i386
-DSTROOT = $(SRCROOT)/dst/i386
-DOCROOT = $(SRCROOT)/doc
-IMGROOT = $(SRCROOT)/sym/cache
-IMGSKELROOT = $(SRCROOT)/imgskel
-CDBOOT = ${IMGROOT}/usr/standalone/i386/cdboot
+OBJROOT=`pwd`/../../obj/i386
+SYMROOT=`pwd`/../../sym/i386
+DSTROOT=`pwd`/../../dst/i386
+SRCROOT=/tmp
 
-include ${SRCROOT}/Make.rules
+VPATH = $(OBJROOT):$(SYMROOT)
 
 # The order of building is important.
-SUBDIRS_PRE =
+SUBDIRS = util libsa libsaio boot2 boot1 boot0 cdboot
 
-SUBDIRS_PRE += util
+all embedtheme tags debug install installhdrs:
+	@for i in ${SUBDIRS}; \
+	do \
+		echo ================= make $@ for $$i =================; \
+		( cd $$i; ${MAKE}					  \
+			"OBJROOT=$(OBJROOT)/$$i"			  \
+		  	"SYMROOT=$(SYMROOT)"				  \
+			"DSTROOT=$(DSTROOT)"				  \
+			"SRCROOT=$(SRCROOT)"				  \
+			"RC_ARCHS=$(RC_ARCHS)"				  \
+			"RC_KANJI=$(RC_KANJI)"				  \
+			"JAPANESE=$(JAPANESE)"				  \
+			"RC_CFLAGS=$(RC_CFLAGS)" $@ 			  \
+		) || exit $$?; 						  \
+	done
 
-SUBDIRS = $(SUBDIRS_PRE) klibc libsa libsaio boot0 boot1 boot2 cdboot modules
-
-modules-builtin:
-	@cd modules; ${MAKE} BUILT_IN=yes
-
-all: $(CONFIG_HEADERS) modules-builtin all-recursive
-
+installsrc:
+	tar cf - . | (cd ${SRCROOT}; tar xfBp -)

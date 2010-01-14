@@ -29,7 +29,7 @@
 #ifndef __LIBSAIO_BIOS_H
 #define __LIBSAIO_BIOS_H
 
-#include "bootargs.h"
+#include <pexpert/i386/boot.h>
 
 typedef union {
     unsigned int      rx;

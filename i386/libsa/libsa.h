@@ -30,50 +30,6 @@
 #include <mach-o/loader.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdbool.h>
-
-/*
- * ctype stuff (aserebln)
- */
-static inline int isupper(int c)
-{
-    return (c >= 'A' && c <= 'Z');
-}
-
-static inline int islower(int c)
-{
-    return (c >= 'a' && c <= 'z');
-}
-
-static inline int isalpha(int c)
-{
-    return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
-}
-
-static inline int isascii(int c)
-{
-    return ( (c >= 0x20) && (c < 0x7f) );
-}
-
-static inline int isspace(int c)
-{
-    return (c == ' ' || c == '\t' || c == '\n' || c == '\12');
-}
-
-static inline int isdigit(int c)
-{
-    return (c >= '0' && c <= '9');
-}
-
-static inline int isxdigit(int c)
-{
-    return ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'));
-}
-
-static inline int ispunct(int c)
-{
-    return (c == '.' || c == '-');
-}
 
 /*
  * string.c
@@ -84,32 +40,26 @@ extern void   bcopy(const void * src, void * dst, size_t len);
 
 #ifndef bzero
 extern void   bzero(void * dst, size_t len);
-#else
-#error bzero is defined.
 #endif
 
 extern void * memset(void * dst, int c, size_t n);
 extern void * memcpy(void * dst, const void * src, size_t len);
-extern int    memcmp(const void * p1, const void * p2, size_t len);
+extern int    memcmp(const void * p1, const void * p2, int len);
 extern int    strcmp(const char * s1, const char * s2);
 extern int    strncmp(const char * s1, const char * s2, size_t n);
 extern char * strcpy(char * s1, const char * s2);
 extern char * strncpy(char * s1, const char * s2, size_t n);
-extern size_t strlcpy(char * s1, const char * s2, size_t n);
+extern char * strlcpy(char * s1, const char * s2, size_t n);
 extern char * strstr(const char *in, const char *str);
 extern int    atoi(const char * str);
 extern int    ptol(const char * str);
-extern size_t    strlen(const char * str);
+extern int    strlen(const char * str);
 extern char * strcat(char * s1, const char * s2);
 extern char * strncat(char * s1, const char * s2, size_t n);
-extern char * strdup(const char *s1);
 
 #if STRNCASECMP
 extern int    strncasecmp(const char * s1, const char * s2, size_t n);
 #endif
-
-extern char * strchr(const char *str, int c);
-extern char * strbreak(const char *str, char **next, long *len);
 
 extern uint8_t checksum8( void * start, unsigned int length );
 
@@ -129,7 +79,7 @@ extern unsigned long long strtouq(const char *nptr, char ** endptr, int base);
 /*
  * prf.c
  */
-extern void prf(const char * fmt, va_list ap, int (*putfn_p)(),
+extern void prf(const char * fmt, va_list ap, void (*putfn_p)(),
                 void * putfn_arg);
 
 /*
@@ -141,9 +91,8 @@ extern int slvprintf(char * buffer, int len, const char * fmt, va_list arg);
 /*
  * zalloc.c
  */
-#define malloc(size)	safe_malloc(size, __FILE__, __LINE__)
-extern void   malloc_init(char * start, int size, int nodes, void (*malloc_error)(char *, size_t, const char *, int));
-extern void * safe_malloc(size_t size,const char *file, int line);
+extern void   malloc_init(char * start, int size, int nodes, void (*malloc_error)(char *, size_t));
+extern void * malloc(size_t size);
 extern void   free(void * start);
 extern void * realloc(void * ptr, size_t size);
 

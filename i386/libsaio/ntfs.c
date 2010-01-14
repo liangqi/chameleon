@@ -26,11 +26,6 @@
 #include "libsaio.h"
 #include "sl.h"
 
-/*
- * dmazar, 14/7/2011 - support for EXFAT volume label reading
- */
-#include "exfat.h"
-
 #define BYTE_ORDER_MARK	0xFEFF
 
 #include "ntfs_private.h"
@@ -196,11 +191,6 @@ NTFSGetDescription(CICell ih, char *str, long strMaxLen)
      */
     if (memcmp((const char *)boot->bf_sysid, "NTFS    ", 8) != 0)
     {
-        /*
-         * Check for EXFAT. Finish by jumping to error to free buf,
-         * although if it is EXFAT then it's no an error.
-         */
-        EXFATGetDescription(ih, str, strMaxLen);
         goto error;
     }
 
@@ -305,56 +295,17 @@ NTFSGetDescription(CICell ih, char *str, long strMaxLen)
     return;
 }
 
-long NTFSGetUUID(CICell ih, char *uuidStr)
+BOOL NTFSProbe(const void * buffer)
 {
-	bool NTFSProbe(const void*);
-
-	struct bootfile *boot;
-	void *buf = malloc(MAX_BLOCK_SIZE);
-	if ( !buf )
-		return -1;
-
-	/*
-	 * Read the boot sector, check signatures, and do some minimal
-	 * sanity checking.	 NOTE: the size of the read below is intended
-	 * to be a multiple of all supported block sizes, so we don't
-	 * have to determine or change the device's block size.
-	 */
-	Seek(ih, 0);
-	Read(ih, (long)buf, MAX_BLOCK_SIZE);
-
-	boot = (struct bootfile *) buf;
-
-	// Check for NTFS signature
-	if ( memcmp((void*)boot->bf_sysid, NTFS_BBID, NTFS_BBIDLEN) != 0 ) {
-		// If not NTFS, maybe it is EXFAT
-		return EXFATGetUUID(ih, uuidStr);
-	}
-
-	// Check for non-null volume serial number
-	if( !boot->bf_volsn )
-		return -1;
-
-	// Use UUID like the one you get on Windows
-	sprintf(uuidStr, "%04X-%04X",	(unsigned short)(boot->bf_volsn >> 16) & 0xFFFF,
-									(unsigned short)boot->bf_volsn & 0xFFFF);
-
-	return 0;
-}    
-
-bool NTFSProbe(const void * buffer)
-{
-	bool result = false;
+	BOOL result = FALSE;
 	
 	const struct bootfile	* part_bootfile = buffer;			// NTFS boot sector structure
 	
 	// Looking for NTFS signature.
 	if (strncmp((const char *)part_bootfile->bf_sysid, NTFS_BBID, NTFS_BBIDLEN) == 0)
-		result = true;
-	
-	// If not NTFS, maybe it is EXFAT
-	if (!result)
-		result = EXFATProbe(buffer);
+		result = TRUE;
 	
 	return result;
 }
+
+

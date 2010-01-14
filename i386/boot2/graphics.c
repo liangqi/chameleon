@@ -42,31 +42,9 @@ int previewLoadedSectors = 0;
 uint8_t *previewSaveunder = 0;
 
 #define VIDEO(x) (bootArgs->Video.v_ ## x)
+
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
  
-//==========================================================================
-// getVBEVideoRam
-
-uint32_t getVBEVideoRam()
-{
-	VBEInfoBlock vbeInfo;
-	int err, small;
-	char *buff = malloc(sizeof(char)*256);
-	if(!buff) return 0;
-	
-	bzero( &vbeInfo, sizeof(vbeInfo) );
-	strcpy( (char*)&vbeInfo, "VBE2" );
-	err = getVBEInfo( &vbeInfo );
-	if (err != errSuccess)
-		return 0;
-	
-	if ( strncmp( (char *)vbeInfo.VESASignature, "VESA", 4 ) )
-		return 0;
-	
-	small = (vbeInfo.TotalMemory < 16);
-	
-	return vbeInfo.TotalMemory * 64 * 1024;
-}
-
 //==========================================================================
 // getVBEInfoString
 
@@ -146,14 +124,16 @@ printVBEModeInfo()
                modeInfo.ModeAttributes);
 
         if (line++ >= 20) {
-            pause();
+            printf("(Press a key to continue...)");
+            getc();
             line = 0;
             clearScreenRows(0, 24);
             setCursorPosition( 0, 0, 1 );
         }
     }    
     if (line != 0) {
-        pause();
+        printf("(Press a key to continue...)");
+        getc();
     }
     setActiveDisplayPage(0);
 }
@@ -369,7 +349,7 @@ char * decodeRLE( const void * rleData, int rleBlocks, int outBytes )
         unsigned char value;
     } * bp = (struct RLEBlock *) rleData;
 
-    out = cp = malloc( outBytes );
+    out = cp = (char *) malloc( outBytes );
     if ( out == NULL ) return NULL;
 
     while ( rleBlocks-- )
@@ -535,7 +515,7 @@ int loadPngImage(const char *filename, uint16_t *width, uint16_t *height,
     PNG_info_t *info;
     int error = 0;
 
-    pngFile = open_bvdev("bt(0,0)", filename, 0);
+    pngFile = open(filename, 0);
     if (pngFile == -1) {
         error = -1;
         goto failed;
@@ -605,6 +585,42 @@ failed:
 	png_alloc_free_all();
 
     return error;
+}
+
+int loadPixmapFromPng(const char *filename, pixmap_t *p)
+{
+	uint16_t width=0,height=0;
+	uint8_t *imagedata = 0;
+	
+	pixmap_t *pm=malloc(sizeof(pixmap_t));
+	if(!pm) return 0;
+	if((loadPngImage(filename, &width, &height, &imagedata))!=0) return 0;
+	pm->width = width;
+	pm->height = height;
+	pm->pixels = (pixel_t *)imagedata;
+	
+	flipRB(pm);
+	*p=*pm;
+
+	return 1;
+}
+
+int loadPixmapFromEmbeddedPng(uint8_t *pngData, uint32_t pngSize, pixmap_t *p)
+{
+	uint16_t width=0,height=0;
+	uint8_t *imagedata = 0;
+
+	pixmap_t *pm=malloc(sizeof(pixmap_t));
+	if(!pm) return 0;
+	if((loadEmbeddedPngImage(pngData, pngSize, &width, &height, &imagedata))!=0) return 0;
+	pm->width = width;
+	pm->height = height;
+	pm->pixels = (pixel_t *)imagedata;
+
+	flipRB(pm);
+	*p=*pm;
+	
+	return 1;
 }
 
 void blendImage(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
@@ -1060,7 +1076,9 @@ getNumberArrayFromProperty( const char *  propKey,
     char * propStr;
     unsigned long    count = 0;
 
-    propStr = newStringForKey( (char *) propKey , &bootInfo->chameleonConfig );
+#define _isdigit(c) ((c) >= '0' && (c) <= '9')
+
+    propStr = newStringForKey( (char *) propKey , &bootInfo->bootConfig );
     if ( propStr )
     {
         char * delimiter = propStr;
@@ -1074,7 +1092,7 @@ getNumberArrayFromProperty( const char *  propKey,
                 numbers[count++] = val;
                 p = delimiter;
             }
-            while ( ( *p != '\0' ) && !isdigit(*p) )
+            while ( ( *p != '\0' ) && !_isdigit(*p) )
                 p++;
         }
 
@@ -1149,7 +1167,7 @@ setVideoMode( int mode, int drawgraphics)
             params[1] = 25;
         }
 
-		setVESATextMode( params[0], params[1], 4 );
+        setVESATextMode( params[0], params[1], 4 );
         bootArgs->Video.v_display = VGA_TEXT_MODE;
     }
 
@@ -1192,6 +1210,7 @@ int getVideoMode(void)
 // Display and clear the activity indicator.
 
 static char indicator[] = {'-', '\\', '|', '/', '-', '\\', '|', '/', '\0'};
+#define kNumIndicators (sizeof(indicator) - 1)
 
 // To prevent a ridiculously fast-spinning indicator,
 // ensure a minimum of 1/9 sec between animation frames.
@@ -1200,7 +1219,9 @@ static char indicator[] = {'-', '\\', '|', '/', '-', '\\', '|', '/', '\0'};
 void
 spinActivityIndicator(int sectors)
 {
-    static unsigned long lastTickTime = 0, currentTickTime;
+    static unsigned long lastTickTime = 0;
+    unsigned long        currentTickTime = time18();
+    static char          string[3] = {'\0', '\b', '\0'};
     
 	if (previewTotalSectors && previewSaveunder)
 	{
@@ -1215,25 +1236,17 @@ spinActivityIndicator(int sectors)
 		return;
 	}
  
-	currentTickTime = time18(); // late binding
 	if (currentTickTime < lastTickTime + MIN_TICKS)
-	{
-		return;
-	}
-	else
-	{
-		lastTickTime = currentTickTime;
-	}
-	
-	if (getVideoMode() == VGA_TEXT_MODE)
-	{
-		if (currentIndicator >= sizeof(indicator))
-		{
-			currentIndicator = 0;
-		}
-		putchar(indicator[currentIndicator++]);
-		putchar('\b');
-	}
+        return;
+    else
+        lastTickTime = currentTickTime;
+
+    if ( getVideoMode() == VGA_TEXT_MODE )
+    {
+        if (currentIndicator >= kNumIndicators) currentIndicator = 0;
+        string[0] = indicator[currentIndicator++];
+        printf(string);
+    }
 }
 
 void
@@ -1241,8 +1254,7 @@ clearActivityIndicator( void )
 {
     if ( getVideoMode() == VGA_TEXT_MODE )
     {
-		putchar(' ');
-		putchar('\b');
+        printf(" \b");
     }
 }
 

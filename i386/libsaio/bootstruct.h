@@ -25,7 +25,7 @@
 #ifndef __BOOTSTRUCT_H
 #define __BOOTSTRUCT_H
 
-#include "bootargs.h"
+#include <pexpert/i386/boot.h>
 #include "saio_types.h"
 #include "bios.h"
 #include "device_tree.h"
@@ -34,16 +34,9 @@
     Kernel boot args global also used by booter for its own data.
  */
 extern boot_args *bootArgs;
-extern boot_args_pre_lion *bootArgsPreLion;
 extern Node *gMemoryMapNode;
 
 #define VGA_TEXT_MODE 0
-//defined in /usr/../boot.h
-
-//#define GRAPHICS_MODE         1
-//#define FB_TEXT_MODE          2
-
-
 
 /*
  * Maximum number of boot drivers that can be loaded.
@@ -52,7 +45,12 @@ extern Node *gMemoryMapNode;
 
 #define CONFIG_SIZE (40 * 4096)
 
-#define kMemoryMapCountMax 1000
+/*
+ * Max size fo config data array, in bytes.
+ */
+#define IO_CONFIG_DATA_SIZE		163840
+
+#define kMemoryMapCountMax 40
 
 /*
  * PCI bus information.
@@ -101,10 +99,10 @@ enum {
 
 /*!
     PrivateBootInfo has fields used by the booter that used to be part of
-    KernelBootArgs_t *bootArgs. When the switch was made to EFI the structure
-    completely changed to boot_args *bootArgs. This (new to boot-132) structure
+    KernelBootArgs_t *bootArgs.  When the switch was made to EFI the structure
+    completely changed to boot_args *bootArgs.  This (new to boot-132) structure
     contains the fields the kernel no longer cares about but the booter still
-    uses internally. Some fields (e.g. the video information) remain interesting
+    uses internally.  Some fields (e.g. the video information) remain interesting
     to the kernel and are thus located in bootArgs although with different field names.
  */
 typedef struct PrivateBootInfo {
@@ -126,16 +124,15 @@ typedef struct PrivateBootInfo {
     char *           configEnd;                    // pointer to end of config files
     char             config[CONFIG_SIZE];
 
-    config_file_t    bootConfig;		           // com.apple.Boot.plist
-    config_file_t    chameleonConfig;              // org.chameleon.Boot.plist which can override bootConfig keys
-    config_file_t    themeConfig;				   // theme.plist
-    config_file_t    smbiosConfig;				   // smbios.plist
+    config_file_t    bootConfig;		               // boot.plist
+    config_file_t    overrideConfig;               // additional boot.plist which can override bootConfig keys
+    config_file_t    themeDefault;				         // default theme.plist
+    config_file_t    themeConfig;				           // theme.plist
+    config_file_t    smbiosConfig;				         // smbios.plist
     config_file_t    helperConfig;                 // boot helper partition's boot.plist
     config_file_t    ramdiskConfig;                // RAMDisk.plist
-
-	bool             memDetect;
 } PrivateBootInfo_t;
 
-extern PrivateBootInfo_t *bootInfo;
+extern PrivateBootInfo_t *bootInfo; 
 
 #endif /* __BOOTSTRUCT_H */

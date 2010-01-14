@@ -1,16 +1,14 @@
 /*
- * Copyright 2010 AsereBLN. All rights reserved. <aserebln@googlemail.com>
  *
- * spd.h
+ *
  */
 
 #ifndef __LIBSAIO_SPD_H
 #define __LIBSAIO_SPD_H
 
-#include "platform.h"
 #include "libsaio.h"
 
-void scan_spd(PlatformInfo_t *p);
+void scan_smbus_controller(pci_dt_t *smbus_dev);
 
 struct smbus_controllers_t {
 	uint32_t	vendor;
@@ -94,8 +92,6 @@ struct smbus_controllers_t {
 #define SPD_MANUFACTURER_SPECIFIC_DATA      99 /* Manufacturer specific data (bytes 99-125) */
 #define SPD_INTEL_SPEC_FOR_FREQUENCY       126 /* Intel specification for frequency */
 #define SPD_INTEL_SPEC_100_MHZ             127 /* Intel specification details for 100MHz support */
-#define SPD_DDR3_MEMORY_BANK			   0x75
-#define SPD_DDR3_MEMORY_CODE			   0x76
 
 /* DRAM specifications use the following naming conventions for SPD locations */
 #define SPD_tRP                             SPD_MIN_ROW_PRECHARGE_TIME

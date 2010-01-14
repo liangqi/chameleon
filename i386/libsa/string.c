@@ -108,7 +108,7 @@ void bzero(void * dst, size_t len)
 #define tolower(c)     ((int)((c) & ~0x20))
 #define toupper(c)     ((int)((c) | 0x20))
 
-size_t strlen(const char * s)
+int strlen(const char * s)
 {
 	int n = 0;
 	while (*s++) n++;
@@ -119,7 +119,7 @@ size_t strlen(const char * s)
 
 /* NOTE: Moved from ntfs.c */
 int
-memcmp(const void *p1, const void *p2, size_t len)
+memcmp(const void *p1, const void *p2, int len)
 {
     while (len--) {
         if (*(const char*)(p1++) != *(const char*)(p2++))
@@ -151,7 +151,7 @@ char *
 strcpy(char * s1, const char * s2)
 {
 	register char *ret = s1;
-	while ((*s1++ = *s2++))
+	while (*s1++ = *s2++)
 		continue;
 	return ret;
 }
@@ -162,6 +162,16 @@ strncpy(char * s1, const char * s2, size_t n)
 	register char *ret = s1;
 	while (n && (*s1++ = *s2++))
 		n--;
+	return ret;
+}
+
+char *
+strlcpy(char * s1, const char * s2, size_t n)
+{
+	register char *ret = s1;
+	while (n && (*s1++ = *s2++))
+		n--;
+	if (!n) *--s1=0;
 	return ret;
 }
 
@@ -231,11 +241,6 @@ char *strcat(char *s1, const char *s2)
 	return(strncat(s1, s2, strlen(s2)));
 }
 
-char *strdup(const char *s1)
-{
-	return strcpy(malloc(strlen(s1) + 1), s1);
-}
-
 #if STRNCASECMP
 int strncasecmp(const char *s1, const char *s2, size_t len)
 {
@@ -246,55 +251,6 @@ int strncasecmp(const char *s1, const char *s2, size_t len)
 	return(n<0 ? 0 : tolower(*s1) - tolower(*--s2));
 }
 #endif
-
-char* strchr(const char *str, int c)
-{
-    do
-    {
-        if(*str == c)
-            return (char*)str;
-    }
-    while(*(str++));
-    
-    return 0;
-}        
-        
-char* strbreak(const char *str, char **next, long *len)
-{
-    char *start = (char*)str, *end;
-    bool quoted = false;
-    
-    if ( !start || !len )
-        return 0;
-    
-    *len = 0;
-    
-    while ( isspace(*start) )
-        start++;
-    
-    if (*start == '"')
-    {
-        start++;
-        
-        end = strchr(start, '"');
-        if(end)
-            quoted = true;
-        else
-            end = strchr(start, '\0');
-    }
-    else
-    {
-        for ( end = start; *end && !isspace(*end); end++ )
-        {}
-    }
-    
-    *len = end - start;
-    
-    if(next)
-        *next = quoted ? end+1 : end;
-    
-    return start;
-}
 
 /* COPYRIGHT NOTICE: checksum8 from AppleSMBIOS */
 uint8_t checksum8( void * start, unsigned int length )

@@ -46,18 +46,16 @@
 ;
 ; Turbo added EFI System Partition boot support
 ;
-; Added KillerJK's switchPass2 modifications
-;
 
 ;
 ; Set to 1 to enable obscure debug messages.
 ;
-DEBUG				EQU  CONFIG_BOOT0_DEBUG
+DEBUG				EQU  0
 
 ;
 ; Set to 1 to enable verbose mode
 ;
-VERBOSE				EQU  CONFIG_BOOT0_VERBOSE
+VERBOSE				EQU  1
 
 ;
 ; Various constants.
@@ -316,18 +314,16 @@ find_boot:
 
 .Pass1:
     cmp     BYTE [si + part.bootid], kPartActive	; In pass 1 we are walking on the standard path
-                                                    ; by trying to hop on the active partition.
-    jne     .continue
-    xor	  	dh, dh               					; Argument for loadBootSector to skip HFS+ partition
-											        ; signature check.
-    jmp     .tryToBoot
+    jne     .continue								; by trying to hop on the active partition.
+	xor		dh, dh									; Argument for loadBootSector to skip HFS+ partition
+													; signature check.
+    jmp    .tryToBoot
 
 .Pass2:    
-    cmp	    BYTE [si + part.type], kPartTypeHFS		; In pass 2 we're going to find a HFS+ partition
-                                                    ; equipped with boot1h in its boot record
-                                                    ; regardless if it's active or not.
-    jne     .continue
-  	mov 	dh, 1                					; Argument for loadBootSector to check HFS+ partition signature.
+;    cmp	    BYTE [si + part.type], kPartTypeHFS		; In pass 2 we're going to find a HFS+ partition
+;    jne     .continue								; equipped with boot1h in its boot record
+;													; regardless if it's active or not.
+	mov		dh, 1									; Argument for loadBootSector to check HFS+ partition signature.
 
     DebugChar('*')
 
@@ -339,10 +335,10 @@ find_boot:
 
     call    loadBootSector
     jne     .continue
-    jmp	    SHORT initBootLoader
+    jmp	    initBootLoader
 
 .continue:
-    add     si, BYTE part_size     			; advance SI to next partition entry
+    add     si, part_size          			; advance SI to next partition entry
     loop    .loop                 		 	; loop through all partition entries
 
     ;
@@ -351,10 +347,8 @@ find_boot:
     ; for a possible GPT Header at LBA 1
     ;    
     dec	    bl
-    jnz     .switchPass2					; didn't find Protective MBR before
-    call    checkGPT
+    jz	    checkGPT						; found Protective MBR before
 
-.switchPass2:
     ;
     ; Switching to Pass 2 
     ; try to find a boot1h aware HFS+ MBR partition
@@ -365,22 +359,6 @@ find_boot:
     
 .exit:
     ret										; Giving up.
-
-
-    ;
-    ; Jump to partition booter. The drive number is already in register DL.
-    ; SI is pointing to the modified partition entry.
-    ;
-initBootLoader:    
-
-DebugChar('J')
-
-%if VERBOSE
-    LogString(done_str)
-%endif
-
-    jmp     kBoot0LoadAddr
-
     
     ; 
     ; Found Protective MBR Partition Type: 0xEE
@@ -388,7 +366,6 @@ DebugChar('J')
     ; of LBA1 for possible GPT Table Header
     ;
 checkGPT:
-    push    bx
 
     mov	    di, kLBA1Buffer						; address of GUID Partition Table Header
     cmp	    DWORD [di], kGPTSignatureLow		; looking for 'EFI '
@@ -477,8 +454,20 @@ checkGPT:
     loop    .gpt_loop								; loop through all partition entries	
 
 .exit:
-    pop     bx
     ret												; no more GUID partitions. Giving up.
+
+    DebugChar('J')
+    ;
+    ; Jump to partition booter. The drive number is already in register DL.
+    ; SI is pointing to the modified partition entry.
+    ;
+initBootLoader:    
+
+%if VERBOSE
+    LogString(done_str)
+%endif
+
+    jmp     kBoot0LoadAddr
 
 
 ;--------------------------------------------------------------------------
@@ -499,7 +488,7 @@ loadBootSector:
     
     mov     al, 3
     mov     bx, kBoot0LoadAddr
-    call    load
+    call    load                    ; will not return on success
     jc      error
 
 	or		dh, dh
@@ -601,8 +590,7 @@ read_lba:
     xor     ah, ah                  ; offset 3, must be 0
     push    ax                      ; offset 2, number of sectors
 
-    ; It pushes 2 bytes with a smaller opcode than if WORD was used
-    push    BYTE 16                 ; offset 0-1, packet size
+    push    WORD 16                 ; offset 0-1, packet size
 
     DebugChar('<')
 %if DEBUG
@@ -767,7 +755,7 @@ boot_error_str   	db  'error', 0
 
 %if VERBOSE
 gpt_str			db  'GPT', 0
-test_str		db  'test', 0
+test_str		db  'testing', 0
 done_str		db  'done', 0
 %endif
 
@@ -782,13 +770,29 @@ done_str		db  'done', 0
 ; According to EFI specification, maximum boot code size is 440 bytes 
 ;
 
-;
-; XXX - compilation errors with debug enabled (see comment above about nasm)
-; Azi: boot0.s:808: error: TIMES value -111 is negative
-;      boot0.s:811: error: TIMES value -41 is negative
-;
 pad_boot:
     times 440-($-$$) db 0
+
+%ifdef FLOPPY
+;--------------------------------------------------------------------------
+; Put fake partition entries for the bootable floppy image
+;
+part1bootid     db    0x80          ; first partition active
+part1head       db    0x00          ; head #
+part1sect       db    0x02          ; sector # (low 6 bits)
+part1cyl        db    0x00          ; cylinder # (+ high 2 bits of above)
+part1systid     db    0xab          ; Apple boot partition
+times   3       db    0x00          ; ignore head/cyl/sect #'s
+part1relsect    dd    0x00000001    ; start at sector 1
+part1numsect    dd    0x00000080    ; 64K for booter
+part2bootid     db    0x00          ; not active
+times   3       db    0x00          ; ignore head/cyl/sect #'s
+part2systid     db    0xa8          ; Apple UFS partition
+times   3       db    0x00          ; ignore head/cyl/sect #'s
+part2relsect    dd    0x00000082    ; start after booter
+; part2numsect  dd    0x00000abe    ; 1.44MB - 65K
+part2numsect    dd    0x000015fe    ; 2.88MB - 65K
+%endif
 
 pad_table_and_sig:
     times 510-($-$$) db 0

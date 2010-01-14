@@ -1,52 +1,61 @@
-SRCROOT = $(abspath $(CURDIR)/../..)
-OBJROOT = $(SRCROOT)/obj/i386/libsa
-SYMROOT = $(SRCROOT)/sym/i386
-DSTROOT = $(SRCROOT)/dst/i386
-DOCROOT = $(SRCROOT)/doc
-IMGROOT = $(SRCROOT)/sym/cache
-IMGSKELROOT = $(SRCROOT)/imgskel
-CDBOOT = ${IMGROOT}/usr/standalone/i386/cdboot
 
 DIR = libsa
-include ${SRCROOT}/Make.rules
+include ../MakePaths.dir
 
+UTILDIR = ../util
 LIBSAIODIR = ../libsaio
+INSTALL_SA_DIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/standalone
+INSTALL_MD_DIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/machdep/i386
 
-CFLAGS	:= $(CFLAGS) $(RC_CFLAGS) $(MORECPP) -arch i386 \
+OPTIM = -Os -Oz
+CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
 	      -fno-builtin -static $(OMIT_FRAME_POINTER_CFLAG) \
-	      -march=pentium4 -msse2 -msoft-float -fno-stack-protector \
-	      -nostdinc -include $(SRCROOT)/autoconf.h
+	      -mpreferred-stack-boundary=2 -fno-align-functions -fno-stack-protector \
+	      -march=pentium4 -msse2 -mfpmath=sse -msoft-float
 
-CPPFLAGS := $(CPPFLAGS) -nostdinc++
+INC = -I. -I$(SYMROOT) -I$(UTILDIR) -I$(LIBSAIODIR)
+ifneq "" "$(wildcard /bin/mkdirs)"
+  MKDIRS = /bin/mkdirs
+else
+  MKDIRS = /bin/mkdir -p
+endif
+AS = as
+LD = ld
+# LIBS= -lc_static
+LIBS=
 
-INC = -I. -I$(SYMROOT) -I$(LIBSAIODIR) -I${SRCROOT}/i386/include
+VPATH = $(OBJROOT):$(SYMROOT)
 
-OBJS = prf.o printf.o zalloc.o \
+SA_OBJS = prf.o printf.o zalloc.o \
 	string.o strtol.o error.o \
 	setjmp.o qsort.o efi_tables.o
 
-OBJS := $(addprefix $(OBJROOT)/, $(OBJS))
-
+SFILES = setjmp.s
+CFILES = prf.c printf.c zalloc.c \
+	string.c strtol.c error.c \
+	qsort.c efi_tables.c
+HFILES = memory.h
+EXPORTED_HFILES = libsa.h memory.h
+INSTALLED_SA_HFILES = libsa.h
+OTHERFILES = Makefile
+ALLSRC =  $(SFILES) $(CFILES) $(HFILES) $(OTHERFILES)
 LIBS = libsa.a
-LIBS := $(addprefix $(SYMROOT)/, $(LIBS))
-
 DIRS_NEEDED = $(OBJROOT) $(SYMROOT)
 
 all embedtheme: $(DIRS_NEEDED) $(LIBS)
 
+libsa.a: $(SA_OBJS)
+	rm -f $(SYMROOT)/$(@F)
+	ar q $(SYMROOT)/$(@F) $^
+	ranlib $(SYMROOT)/$(@F)
 
-$(LIBS): $(OBJS)
-	@echo "\t[RM] $@"
-	@rm -f $@
-	@echo "\t[AR] $(@F)"
-	@ar q $@ $^ &> /dev/null
-	@echo "\t[RANLIB] $(@F)"
-	@ranlib $@
+$(INSTALL_SA_DIR) $(INSTALL_MD_DIR):
+	$(MKDIRS) $@
+
+installhdrs:: $(INSTALL_SA_DIR) $(INSTALL_MD_DIR)
+	cp $(INSTALLED_SA_HFILES) $(INSTALL_SA_DIR)
+
+include ../MakeInc.dir
 
 # dependencies
 -include $(OBJROOT)/Makedep
-
-clean-local:
-	@for o in $(OBJS); do if [ -f "$${o}" ];then echo "\t[RM] $${o}"; fi; done
-	@for l in $(LIBS); do if [ -f "$${l}" ];then echo "\t[RM] $${l}"; fi; done
-	@rm -f $(LIBS) $(OBJS)
