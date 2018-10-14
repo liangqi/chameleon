@@ -1713,6 +1713,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 	char *SierraPattern	= "Install%20macOS%20Sierra";		// Install macOS Sierra
 	char *HSierraPattern	= "Install%20macOS%20High%20Sierra";	// Install macOS High Sierra
 	char *HSierraPatternB	= "Install%20macOS%2010.13";		// Install macOS 10.13
+	char *MojavePattern	= "Install%20macOS%20Mojave";		// Install macOS Mojave
 
 	/*
 	 * Only look for OS Version on HFS+
@@ -1740,7 +1741,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 	// is an installer or a system to Upgrade OSX?
 	snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/.IAProductInfo", BIOS_DEV_UNIT(bvr), bvr->part_no);
 
-	if (!loadConfigFile(dirSpec, &configFile))
+	if (loadConfigFile(dirSpec, &configFile) == 0)
 	{
 		valid = true;
 	}
@@ -1749,7 +1750,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 	{
 		// is createinstallmedia?
 		snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/.IABootFilesSystemVersion.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
-		if (!loadConfigFile(dirSpec, &configFile))
+		if (loadConfigFile(dirSpec, &configFile) == 0)
 		{
 			valid = false;
 		}
@@ -1757,8 +1758,9 @@ static bool getOSVersion(BVRef bvr, char *str)
 		{
 			// if not exist probably is a vanilla installer made w/o createinstallermedia method
 			snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/.IABootFiles/com.apple.Boot.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
-			if (!loadConfigFile(dirSpec, &configFile))
+			if (loadConfigFile(dirSpec, &configFile) == 0)
 			{
+				strncpy(bvr->comAppleBoot, dirSpec, strlen(dirSpec));
 				valid = true;
 			}
 			else
@@ -1774,7 +1776,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 		 * we don't know the real OS version, but "Kernel Flags" key contain the URL path to the app..
 		 * and we try to see if contain a match for our patterns ("Install%20OS%20X%20El%20Capitan" = 10.11)
 		 */
-		if (getValueForKey("Kernel Flags", &val, &len, &configFile))
+		if (getValueForKey(kKernelFlagsKey, &val, &len, &configFile))
 		{
 			if(strstr(val, LionPattern))
 			{
@@ -1824,6 +1826,12 @@ static bool getOSVersion(BVRef bvr, char *str)
 				fakeOSVersionInt = 13;
 				valid = true;
 			}
+			else if(strstr(val, MojavePattern))
+			{
+				fakeOSVersion = "10.14";
+				fakeOSVersionInt = 14;
+				valid = true;
+			}
 			else
 			{
 				valid = false;
@@ -1858,7 +1866,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 		len = 0; val = 0;
 		// 10.9 and later use "/OS X Install Data" folder
 		snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/OS X Install Data/com.apple.Boot.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
-		if (!loadConfigFile(dirSpec, &configFile))
+		if (loadConfigFile(dirSpec, &configFile) == 0)
 		{
 			/*
 			 * bad is that we can't find what is the exactly Major OS version..
@@ -1887,8 +1895,11 @@ static bool getOSVersion(BVRef bvr, char *str)
 						case 13:
 							fakeOSVersion = "10.13";
 							break;
+						case 14:
+							fakeOSVersion = "10.14";
+							break;
 						default:
-							fakeOSVersion = "10.13";
+							fakeOSVersion = "10.14";
 							break;
 					}
 
@@ -1909,6 +1920,8 @@ static bool getOSVersion(BVRef bvr, char *str)
 					strncpy( bvr->OSFullVer, fakeOSVersion, strlen(fakeOSVersion) );
 					bvr->OSisOSXUpgrade = true;
 					strncpy( bvr->OSBuildVer, "UPGRADE", strlen("UPGRADE") );
+					strncpy(bvr->comAppleBoot, dirSpec, strlen(dirSpec));
+
 					return true;
 				}
 			}
@@ -1930,13 +1943,14 @@ static bool getOSVersion(BVRef bvr, char *str)
 		 * Not valid? 10.8 and older use "/Mac OS X Install Data" folder..
 		 */
 		snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/Mac OS X Install Data/com.apple.Boot.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
-		if (!loadConfigFile(dirSpec, &configFile))
+		if (loadConfigFile(dirSpec, &configFile) == 0)
 		{
 			fakeOSVersion = "10.8"; // fake the OS version using 10.8.. just to find the kernelcache path for 10.7 and 10.8..
 			strncpy( bvr->OSFullVer, fakeOSVersion, strlen(fakeOSVersion) );
 			bvr->OSisMacOSXUpgrade = true;
 			// again no SystemVersion.plist, so no build version.. but is usefull to know that is a System upgrade..
 			strncpy( bvr->OSBuildVer, "UPGRADE", strlen("UPGRADE") );
+			strncpy(bvr->comAppleBoot, dirSpec, strlen(dirSpec));
 			return true;
 		}
 	}
@@ -1953,7 +1967,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 			"hd(%d,%d)/macOS Install Data/Locked Files/Boot Files/SystemVersion.plist",
 		BIOS_DEV_UNIT(bvr),
 		bvr->part_no);
-		if (!loadConfigFile(dirSpec, &configFile))
+		if (loadConfigFile(dirSpec, &configFile) == 0)
 		{
 			if  (getValueForKey(kProductVersion, &val, &len, &configFile))
 			{
@@ -1961,8 +1975,23 @@ static bool getOSVersion(BVRef bvr, char *str)
 				strncpy( bvr->OSFullVer, val, len );
 				bvr->OSFullVer[len] = '\0';   /* null character manually added */
 
+				// getValueForKey uses const char for val
+				// so copy it and trim
+				*str = '\0';
+				strncat(str, val, MIN(len, 5));
+				if(str[4] == '.')
+				{
+					str[4] = '\0';
+				}
 				bvr->OSisOSXUpgrade = true;
 				strncpy( bvr->OSBuildVer, "UPGRADE", strlen("UPGRADE") );
+
+				len = 0; val = 0;
+				snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/macOS Install Data/Locked Files/Boot Files/com.apple.Boot.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
+				if (loadConfigFile(dirSpec, &configFile) == 0)
+				{
+					strncpy(bvr->comAppleBoot, dirSpec, strlen(dirSpec));
+				}
 				return true;
 			}
 		}
@@ -1973,7 +2002,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 	// OS X Installer createinstallermedia method for 10.9 and newer.
 	snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/.IABootFilesSystemVersion.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
 
-	if (!loadConfigFile(dirSpec, &configFile))
+	if (loadConfigFile(dirSpec, &configFile) == 0)
 	{
 		bvr->OSisInstaller = true;
 		valid = true;
@@ -1984,7 +2013,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 	{
 		snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/System/Library/CoreServices/SystemVersion.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
 
-		if (!loadConfigFile(dirSpec, &configFile))
+		if (loadConfigFile(dirSpec, &configFile) == 0)
 		{
 			valid = true;
 		}
@@ -1993,7 +2022,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 			// OS X Server
 			snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/System/Library/CoreServices/ServerVersion.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
 
-			if (!loadConfigFile(dirSpec, &configFile))
+			if (loadConfigFile(dirSpec, &configFile) == 0)
 			{
 				bvr->OSisServer = true;
 				valid = true;
@@ -2003,10 +2032,17 @@ static bool getOSVersion(BVRef bvr, char *str)
 
 	if (!valid)
 	{
+		len = 0; val = 0;
+		snprintf(dirSpec, sizeof(dirSpec), "hd(%d,%d)/com.apple.recovery.boot/com.apple.Boot.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
+		if (loadConfigFile(dirSpec, &configFile) == 0)
+		{
+			strncpy(bvr->comAppleBoot, dirSpec, strlen(dirSpec));
+		}
+
 		// OS X Recovery
 		sprintf(dirSpec, "hd(%d,%d)/com.apple.recovery.boot/SystemVersion.plist", BIOS_DEV_UNIT(bvr), bvr->part_no);
 
-		if (!loadConfigFile(dirSpec, &configFile))
+		if (loadConfigFile(dirSpec, &configFile) == 0)
 		{
 			bvr->OSisRecovery = true;
 			valid = true;
@@ -2015,7 +2051,7 @@ static bool getOSVersion(BVRef bvr, char *str)
 
 	if (valid)
 	{
-
+		len = 0; val = 0;
 		// ProductVersion
 		if  (getValueForKey(kProductVersion, &val, &len, &configFile))
 		{
