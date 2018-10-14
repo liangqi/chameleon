@@ -200,17 +200,6 @@ typedef struct {
 
 defaultChassis_t defaultChassis;
 
-/* =====================================================
- Firmware Volume Description (Apple Specific - Type 128)
- ===================================================== */
-typedef struct
-{
-    uint32_t firmwareFeatures;
-    uint32_t firmwareFeaturesMask;
-} defaultFirmwareVolume_t;
-
-defaultFirmwareVolume_t defaultFirmwareVolume;
-
 typedef struct
 {
 	uint8_t			type;
@@ -394,9 +383,9 @@ SMBValueSetter SMBSetters[] =
 	// Firmware Volume Description (Apple Specific - Type 128)
 	// kSMBTypeFirmwareVolume
 	{kSMBTypeFirmwareVolume, kSMBDWord, getFieldOffset(SMBFirmwareVolume, FirmwareFeatures),
-		kSMBFirmwareVolumeFirmwareFeaturesKey, NULL, (char **)&defaultFirmwareVolume.firmwareFeatures},
+		kSMBFirmwareVolumeFirmwareFeaturesKey, NULL, NULL},
 	{kSMBTypeFirmwareVolume, kSMBDWord, getFieldOffset(SMBFirmwareVolume, FirmwareFeaturesMask),
-		kSMBFirmwareVolumeFirmwareFeaturesMaskKey, NULL, (char **)&defaultFirmwareVolume.firmwareFeaturesMask},
+		kSMBFirmwareVolumeFirmwareFeaturesMaskKey, NULL, NULL},
 
 	// Memory SPD Data   (Apple Specific - Type 130)
 	// kSMBTypeMemorySPD
@@ -453,8 +442,6 @@ static SMBWord structureCount	= 0;
 //#define kDefaultBoardProcessorType			"11" // 0xB
 #define kDefaultSystemVersion				"1.0"
 #define kDefaultBIOSRelease				256 // 256 = 0x0100 -> swap bytes: 0x0001 -> Release: 0.1 (see SMBIOS spec. table Type 0)
-#define kDefaultFirmwareFeatures			0xE907F537; //unknown - use oem SMBIOS value to be default
-#define kDefaultFirmwareFeaturesMask			0xFFFFFFFF; //unknown - use oem SMBIOS value to be default
 
 
 //=========== Mac mini ===========
@@ -564,11 +551,6 @@ void setDefaultSMBData(void)  // Bungo: setting data from real Macs
 	defaultChassis.serialNumber         = kDefaultSerialNumber;
 	defaultChassis.assetTag             = kDefaultAssetTag;
 	defaultChassis.skuNumber            = kDefaultSkuNumber;
-
-	// set default firmware features and mask values
-	// those values will be used whenever no valid key values are found in smbios.plist
-	defaultFirmwareVolume.firmwareFeatures     = kDefaultFirmwareFeatures;
-	defaultFirmwareVolume.firmwareFeaturesMask = kDefaultFirmwareFeaturesMask;
 
 	// if (platformCPUFeature(CPU_FEATURE_MOBILE)) Bungo: doesn't recognise correctly, need fixing
 	if (PlatformType == 2)  // this works but it's a substitute
@@ -927,27 +909,38 @@ bool setSMBValue(SMBStructPtrs *structPtr, int idx, returnType *value)
  ============================================= */
 void addSMBFirmwareVolume(SMBStructPtrs *structPtr)
 {
-	SMBFirmwareVolume *p = (SMBFirmwareVolume *)structPtr->new;
+	int val;
+	
+	//
+	// Several old Macs don't have a firmware volume block in their SMBIOS.
+	// Therefore, the block will only be added if the keys are set in the plist
+	// file.
+	//
+	if (getIntForKey(kSMBFirmwareVolumeFirmwareFeaturesKey,     &val, SMBPlist) &&
+	    getIntForKey(kSMBFirmwareVolumeFirmwareFeaturesMaskKey, &val, SMBPlist))
+	{
+		SMBFirmwareVolume *p = (SMBFirmwareVolume *)structPtr->new;
 
-	// initialise new table
-	bzero(p, sizeof(SMBFirmwareVolume));
+		// initialize new table
+		bzero(p, sizeof(SMBFirmwareVolume));
 
-	// common rules
-	p->header.type   = kSMBTypeFirmwareVolume;
-	p->header.length = sizeof(SMBFirmwareVolume);
-	p->header.handle = 0x8000;
+		// common rules
+		p->header.type   = kSMBTypeFirmwareVolume;
+		p->header.length = sizeof(SMBFirmwareVolume);
+		p->header.handle = 0x8000;
 
-	setSMBValue(structPtr, numOfSetters - 4 , (returnType *)(void *)&(p->FirmwareFeatures));
-	setSMBValue(structPtr, numOfSetters - 3 , (returnType *)(void *)&(p->FirmwareFeaturesMask));
+		setSMBValue(structPtr, numOfSetters - 4 , (returnType *)(void *)&(p->FirmwareFeatures));
+		setSMBValue(structPtr, numOfSetters - 3 , (returnType *)(void *)&(p->FirmwareFeaturesMask));
 
-	p->RegionCount              = 1;
-	p->RegionType[0]            = FW_REGION_MAIN;
-	p->FlashMap[0].StartAddress = 0xFFE00000;
-	p->FlashMap[0].EndAddress   = 0xFFEFFFFF;
+		p->RegionCount              = 1;
+		p->RegionType[0]            = FW_REGION_MAIN;
+		p->FlashMap[0].StartAddress = 0xFFE00000;
+		p->FlashMap[0].EndAddress   = 0xFFEFFFFF;
 
-	structPtr->new = (SMBStructHeader *)((uint8_t *)structPtr->new + sizeof(SMBFirmwareVolume) + 2);
-	tableLength += sizeof(SMBFirmwareVolume) + 2;
-	structureCount++;
+		structPtr->new = (SMBStructHeader *)((uint8_t *)structPtr->new + sizeof(SMBFirmwareVolume) + 2);
+		tableLength += sizeof(SMBFirmwareVolume) + 2;
+		structureCount++;
+	}
 
 	return;
 }
