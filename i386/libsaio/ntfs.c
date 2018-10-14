@@ -308,6 +308,11 @@ long NTFSGetUUID(CICell ih, char *uuidStr)
 {
 	bool NTFSProbe(const void*);
 
+	long long mftOffset;
+
+	char sero[20];
+
+	const unsigned char bufff[32];
 	struct bootfile *boot;
 	void *buf = malloc(MAX_BLOCK_SIZE);
 	if ( !buf )
@@ -342,8 +347,51 @@ long NTFSGetUUID(CICell ih, char *uuidStr)
 		return -1;
 	}
 
-	// Use UUID like the one you get on Windows
-	sprintf(uuidStr, "%04X-%04X",	(unsigned short)(boot->bf_volsn >> 16) & 0xFFFF, (unsigned short)boot->bf_volsn & 0xFFFF);
+	free(buf);
+
+	sprintf(sero,"%016llx",boot->bf_volsn);
+
+	sprintf(sero,"%c%c%c%c-%c%c%c%c-%c%c%c%c-%c%c%c%c",sero[0],sero[1],sero[2],sero[3],sero[4],sero[5],sero[6],sero[7],sero[8],sero[9],sero[10],sero[11],sero[12],sero[13],sero[14],sero[15]);
+
+	verbose("Numero de Serie %s\n " ,sero);
+
+	mftOffset = (boot->bf_mftcn * boot->bf_bps * boot->bf_spc);
+
+	bzero((void*)bufff,32);
+
+	bzero(uuidStr,40);
+
+	Seek(ih, mftOffset);
+
+	Read(ih, (long)bufff, 5);
+
+	if((unsigned char )bufff[4]==0x30) {
+		mftOffset = (mftOffset + 3352);
+	} else {
+		mftOffset = (mftOffset + 3320);
+	}
+
+	bzero((void*)bufff,32);
+
+	Seek(ih, mftOffset);
+
+	Read(ih, (long)bufff,16);
+
+	snprintf(uuidStr,
+             37,
+             "%02X%02X%02X%02X-"
+             "%02X%02X-"
+             "%02X%02X-"
+
+             "%02X%02X-"
+             "%02X%02X%02X%02X%02X%02X",
+             bufff[3], bufff[2], bufff[1], bufff[0],
+             bufff[5], bufff[4],
+             bufff[7], bufff[6],
+             bufff[8], bufff[9],
+             bufff[10], bufff[11], bufff[12], bufff[13], bufff[14], bufff[15]);
+
+	verbose("UUID : %s\n\n" ,uuidStr);
 
 	return 0;
 }
