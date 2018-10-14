@@ -1220,15 +1220,16 @@ void csrInfo(int csrValue, bool custom)
 	if (csrValue != 0)
 	{
 		verbose("\nConfiguration:\n");
-		verbose("Kext Signing: %s\n", ((csrValue & 0x001) == 0) ? "enabled":"disabled");           /* (1 << 0) Allow untrusted kexts */
-		verbose("Filesystem Protections: %s\n", ((csrValue & 0x002) == 0) ? "enabled":"disabled"); /* (1 << 1) Allow unrestricted file system. */
-		verbose("Task for PID: %s\n", ((csrValue & 0x004) == 0) ? "enabled":"disabled");           /* (1 << 2) */
-		verbose("Debugging Restrictions: %s\n", ((csrValue & 0x008) == 0) ? "enabled":"disabled"); /* (1 << 3) */
-		verbose("Apple Internal: %s\n", ((csrValue & 0x010) == 0) ? "enabled":"disabled");         /* (1 << 4) */
-		verbose("DTrace Restrictions: %s\n", ((csrValue & 0x020) == 0) ? "enabled":"disabled");    /* (1 << 5) Allow unrestricted dtrace */
-		verbose("NVRAM Protections: %s\n", ((csrValue & 0x040) == 0) ? "enabled":"disabled");      /* (1 << 6) Allow unrestricted NVRAM */
-		verbose("Device configuration: %s\n", ((csrValue & 0x080) == 0) ? "enabled":"disabled");   /* (1 << 7) Allow device configuration */
-		verbose("BaseSystem Verification: %s\n", ((csrValue & 0x100) == 0) ? "enabled":"disabled");   /* (1 << 8) Allow any Recovery OS */
+		verbose("\tKext Signing:            %s\n", ((csrValue & 0x001) == 0) ? "enabled" : "disabled");   /* (1 << 0) Allow untrusted kexts */
+		verbose("\tFilesystem Protections:  %s\n", ((csrValue & 0x002) == 0) ? "enabled" : "disabled");   /* (1 << 1) Allow unrestricted file system. */
+		verbose("\tTask for PID:            %s\n", ((csrValue & 0x004) == 0) ? "enabled" : "disabled");   /* (1 << 2) */
+		verbose("\tDebugging Restrictions:  %s\n", ((csrValue & 0x008) == 0) ? "enabled" : "disabled");   /* (1 << 3) */
+		verbose("\tApple Internal:          %s\n", ((csrValue & 0x010) == 0) ? "enabled" : "disabled");   /* (1 << 4) */
+		verbose("\tDTrace Restrictions:     %s\n", ((csrValue & 0x020) == 0) ? "enabled" : "disabled");   /* (1 << 5) Allow unrestricted dtrace */
+		verbose("\tNVRAM Protections:       %s\n", ((csrValue & 0x040) == 0) ? "enabled" : "disabled");   /* (1 << 6) Allow unrestricted NVRAM */
+		verbose("\tDevice configuration:    %s\n", ((csrValue & 0x080) == 0) ? "enabled" : "disabled");   /* (1 << 7) Allow device configuration */
+		verbose("\tBaseSystem Verification: %s\n", ((csrValue & 0x100) == 0) ? "enabled" : "disabled");   /* (1 << 8) Allow any Recovery OS */
+//		verbose("\tApple Internal HS:       %s\n", ((csrValue & 0x200) == 0) ? "enabled" : "disabled");   /* (1 << 9) Allow Apple Internal HS */
 	}
 	verbose("\n");
 }
