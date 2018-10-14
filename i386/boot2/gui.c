@@ -51,6 +51,8 @@ enum {
 	iDeviceGeneric_o,
 	iDeviceHFS,
 	iDeviceHFS_o,
+	iDeviceHFS_moj,
+	iDeviceHFS_moj_o,
 	iDeviceHFS_hsi,
 	iDeviceHFS_hsi_o,
 	iDeviceHFS_sie,
@@ -74,6 +76,8 @@ enum {
 
 	iDeviceHFSRAID,
 	iDeviceHFSRAID_o,
+	iDeviceHFSRAID_moj,
+	iDeviceHFSRAID_moj_o,
 	iDeviceHFSRAID_hsi,
 	iDeviceHFSRAID_hsi_o,
 	iDeviceHFSRAID_sie,
@@ -98,8 +102,13 @@ enum {
 	iDeviceHFSRECOVERY,
 	iDeviceHFSRECOVERY_o,
 
+//	iDeviceHFSINSTALLER,
+//	iDeviceHFSINSTALLER_o,
+
 	iDeviceHFSFUSION,
 	iDeviceHFSFUSION_o,
+	iDeviceHFSFUSION_moj,
+	iDeviceHFSFUSION_moj_o,
 	iDeviceHFSFUSION_hsi,
 	iDeviceHFSFUSION_hsi_o,
 	iDeviceHFSFUSION_sie,
@@ -168,6 +177,8 @@ image_t images[] = {
 	{.name = "device_generic_o",            .image = NULL},
 	{.name = "device_hfsplus",              .image = NULL},
 	{.name = "device_hfsplus_o",            .image = NULL},
+	{.name = "device_hfsplus_moj",          .image = NULL},
+	{.name = "device_hfsplus_moj_o",        .image = NULL},
 	{.name = "device_hfsplus_hsi",          .image = NULL},
 	{.name = "device_hfsplus_hsi_o",        .image = NULL},
 	{.name = "device_hfsplus_sie",          .image = NULL},
@@ -191,6 +202,8 @@ image_t images[] = {
 
 	{.name = "device_hfsraid",              .image = NULL},
 	{.name = "device_hfsraid_o",            .image = NULL},
+	{.name = "device_hfsraid_moj",          .image = NULL},
+	{.name = "device_hfsraid_moj_o",        .image = NULL},
 	{.name = "device_hfsraid_hsi",          .image = NULL},
 	{.name = "device_hfsraid_hsi_o",        .image = NULL},
 	{.name = "device_hfsraid_sie",          .image = NULL},
@@ -215,8 +228,13 @@ image_t images[] = {
 	{.name = "device_hfsplus_recovery",     .image = NULL},
 	{.name = "device_hfsplus_recovery_o",   .image = NULL},
 
+//	{.name = "device_hfsplus_installer",     .image = NULL},
+//	{.name = "device_hfsplus_installer_o",   .image = NULL},
+
 	{.name = "device_hfsfusion",            .image = NULL},
 	{.name = "device_hfsfusion_o",          .image = NULL},
+	{.name = "device_hfsfusion_moj",        .image = NULL},
+	{.name = "device_hfsfusion_moj_o",      .image = NULL},
 	{.name = "device_hfsfusion_hsi",        .image = NULL},
 	{.name = "device_hfsfusion_hsi_o",      .image = NULL},
 	{.name = "device_hfsfusion_sie",        .image = NULL},
@@ -438,6 +456,8 @@ static int loadGraphics(void)
 	LOADPNG(device_hfsplus,                 iDeviceGeneric);
 	LOADPNG(device_hfsplus_o,               iDeviceHFS);
 
+	LOADPNG(device_hfsplus_moj,             iDeviceHFS);
+	LOADPNG(device_hfsplus_moj_o,           iDeviceHFS_moj);
 	LOADPNG(device_hfsplus_hsi,             iDeviceHFS);
 	LOADPNG(device_hfsplus_hsi_o,           iDeviceHFS_hsi);
 	LOADPNG(device_hfsplus_sie,             iDeviceHFS);
@@ -461,6 +481,8 @@ static int loadGraphics(void)
 
 	LOADPNG(device_hfsraid,                 iDeviceHFS);
 	LOADPNG(device_hfsraid_o,               iDeviceHFSRAID);
+	LOADPNG(device_hfsraid_moj,             iDeviceHFSRAID);
+	LOADPNG(device_hfsraid_moj_o,           iDeviceHFSRAID_moj);
 	LOADPNG(device_hfsraid_hsi,             iDeviceHFSRAID);
 	LOADPNG(device_hfsraid_hsi_o,           iDeviceHFSRAID_hsi);
 	LOADPNG(device_hfsraid_sie,             iDeviceHFSRAID);
@@ -485,8 +507,13 @@ static int loadGraphics(void)
 	LOADPNG(device_hfsplus_recovery,        iDeviceHFS);
 	LOADPNG(device_hfsplus_recovery_o,      iDeviceHFSRECOVERY);
 
+//	LOADPNG(device_hfsplus_recovery,        iDeviceHFS);
+//	LOADPNG(device_hfsplus_recovery_o,      iDeviceHFSINSTALLER);
+
 	LOADPNG(device_hfsfusion,               iDeviceHFS);
 	LOADPNG(device_hfsfusion_o,             iDeviceHFSFUSION);
+	LOADPNG(device_hfsfusion_moj,           iDeviceHFSFUSION);
+	LOADPNG(device_hfsfusion_moj_o,         iDeviceHFSFUSION_moj);
 	LOADPNG(device_hfsfusion_hsi,           iDeviceHFSFUSION);
 	LOADPNG(device_hfsfusion_hsi_o,         iDeviceHFSFUSION_hsi);
 	LOADPNG(device_hfsfusion_sie,           iDeviceHFSFUSION);
@@ -1157,7 +1184,11 @@ void drawDeviceIcon(BVRef device, pixmap_t *buffer, position_t p, bool isSelecte
 								break;
 							}
 							if (device->OSVersion[4] == '3') { // 10.13
-								devicetype = (device->flags & kBVFlagBooter ? iDeviceHFSRAID_hsi : iDeviceHFS_hsi); // Sierra
+								devicetype = (device->flags & kBVFlagBooter ? iDeviceHFSRAID_hsi : iDeviceHFS_hsi); // High Sierra
+								break;
+							}
+							if (device->OSVersion[4] == '4') { // 10.14
+								devicetype = (device->flags & kBVFlagBooter ? iDeviceHFSRAID_moj : iDeviceHFS_moj); // Mojave
 								break;
 							}
 						default:
