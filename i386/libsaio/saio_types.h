@@ -220,6 +220,7 @@ struct BootVolume {
 	bool			OSisMacOSXUpgrade;	/* 1 = OS X Installer Upgrade */
 	bool			OSisOSXUpgrade;		/* 1 = OS X Installer Upgrade */
 	bool			OSisRecovery;		/* 1 = Recovery HD partition */
+	char			comAppleBoot[150];	/* additional arguments */
 };
 
 enum
