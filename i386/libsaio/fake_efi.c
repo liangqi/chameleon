@@ -466,6 +466,7 @@ static const char SYSTEM_SERIAL_PROP[] = "SystemSerialNumber";
 static const char SYSTEM_TYPE_PROP[] = "system-type";
 static const char MODEL_PROP[] = "Model";
 static const char BOARDID_PROP[] = "board-id";
+static const char DEV_COLORS[] = "device-colors";
 static const char DEV_PATH_SUP[] = "DevicePathsSupported";
 static const char START_POWER_EV[] = "StartupPowerEvents";
 static const char MACHINE_SIG_PROP[] = "machine-signature";
@@ -628,6 +629,8 @@ static void setupEfiDeviceTree(void)
 	}
 
 	DT__AddProperty(efiPlatformNode, START_POWER_EV, sizeof(STARTUP_POWER_EVENTS), (EFI_UINT8 *) &STARTUP_POWER_EVENTS);
+
+	DT__AddProperty(efiPlatformNode, DEV_COLORS, sizeof(DEV_COLORS), (EFI_UINT8 *) &DEV_COLORS);
 
 	DT__AddProperty(efiPlatformNode, DEV_PATH_SUP, sizeof(DEVICE_PATHS_SUPPORTED), (EFI_UINT8 *) &DEVICE_PATHS_SUPPORTED);
 

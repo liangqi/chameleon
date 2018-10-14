@@ -836,6 +836,7 @@ static long ParseXML( char *buffer, ModulePtr *module, TagPtr *personalities )
 	long		pos = 0;
 	TagPtr		moduleDict;
 	TagPtr		required;
+	TagPtr		identifier;
 	ModulePtr	tmpModule;
 
 	while (1)
@@ -868,8 +869,17 @@ static long ParseXML( char *buffer, ModulePtr *module, TagPtr *personalities )
 
 	if ( (required == 0) || (required->type != kTagTypeString) || !strncmp(required->string, "Safe Boot", sizeof("Safe Boot")))
 	{
-		XMLFreeTag(moduleDict);
-		return -2;
+		identifier = XMLGetProperty(moduleDict, "CFBundleIdentifier");
+
+		if (strcmp(identifier->string, "com.apple.driver.AppleSMC") == 0)
+		{
+//				verbose("\tForced load of: AppleSMC.kext");
+		}
+		else
+		{
+			XMLFreeTag(moduleDict);
+			return -2;
+		}
 	}
 
 	tmpModule = malloc(sizeof(Module));
@@ -1243,6 +1253,7 @@ long DecodeKernel(void *binary, entry_t *rentry, char **raddr, int *rsize)
 			// High Sierra
 			case 0xA0D0000: gDarwinMajor = 17; gDarwinMinor =  0; gDarwinRev = 0; break; // 10.13
 			case 0xA0D0100: gDarwinMajor = 17; gDarwinMinor =  1; gDarwinRev = 0; break; // 10.13.1
+			// Mojave
 
 			// default = last known kernel
 			default:        gDarwinMajor = 17; gDarwinMinor =  1; gDarwinRev = 0; break; // 10.13.1;
