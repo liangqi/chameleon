@@ -80,13 +80,25 @@ typedef struct EfiMemoryRange {
  * Video information.. 
  */
 
-struct Boot_Video {
+struct Boot_VideoV1 {
 	uint32_t	v_baseAddr;	/* Base address of video memory */
 	uint32_t	v_display;	/* Display Code (if Applicable */
 	uint32_t	v_rowBytes;	/* Number of bytes per pixel row */
 	uint32_t	v_width;	/* Width */
 	uint32_t	v_height;	/* Height */
 	uint32_t	v_depth;	/* Pixel Depth */
+};
+typedef struct Boot_VideoV1	Boot_VideoV1;
+
+struct Boot_Video
+{
+	uint32_t	v_display;		// Display Code (if Applicable).
+	uint32_t	v_rowBytes;		// Number of bytes per pixel row.
+	uint32_t	v_width;		// Width.
+	uint32_t	v_height;		// Height.
+	uint32_t	v_depth;		// Pixel Depth.
+	uint32_t	v_resv[7];		// Reserved.
+	uint64_t	v_baseAddr;		// Base address (64-bit) of video memory.
 };
 typedef struct Boot_Video	Boot_Video;
 
@@ -162,6 +174,12 @@ typedef struct boot_icon_element boot_icon_element;
 		CSR_ALLOW_ANY_RECOVERY_OS | \
 		CSR_ALLOW_UNAPPROVED_KEXTS)
 
+/* CSR capabilities that a booter can give to the system */
+#define CSR_CAPABILITY_UNLIMITED			(1 << 0)
+#define CSR_CAPABILITY_CONFIG				(1 << 1)
+#define CSR_CAPABILITY_APPLE_INTERNAL			(1 << 2)
+
+#define CSR_VALID_CAPABILITIES (CSR_CAPABILITY_UNLIMITED | CSR_CAPABILITY_CONFIG | CSR_CAPABILITY_APPLE_INTERNAL)
 
 typedef struct boot_args
 {
@@ -179,7 +197,7 @@ typedef struct boot_args
     uint32_t    MemoryMapDescriptorSize;
     uint32_t    MemoryMapDescriptorVersion;
 
-    Boot_Video	Video;		/* Video Information */
+    Boot_VideoV1	VideoV1;		/* Video Information */
 
     uint32_t    deviceTreeP;	  /* Physical address of flattened device tree */
     uint32_t    deviceTreeLength; /* Length of flattened tree */
@@ -213,7 +231,13 @@ typedef struct boot_args
     uint32_t    boot_SMC_plimit;
     uint16_t	bootProgressMeterStart;
     uint16_t	bootProgressMeterEnd;
-    uint32_t    __reserved4[726];
+
+    Boot_Video  Video;      /* Video Information */
+
+    uint32_t	apfsDataStart;						// Physical address of apfs volume key structure.
+    uint32_t	apfsDataSize;
+
+    uint32_t    __reserved4[710];
 
 } boot_args;
 
@@ -229,7 +253,7 @@ typedef struct boot_args_legacy
     uint32_t    MemoryMapDescriptorSize;
     uint32_t    MemoryMapDescriptorVersion;
 
-    Boot_Video	Video;		/* Video Information */
+    Boot_VideoV1	Video;		/* Video Information */
 
     uint32_t    deviceTreeP;	  /* Physical address of flattened device tree */
     uint32_t    deviceTreeLength; /* Length of flattened tree */

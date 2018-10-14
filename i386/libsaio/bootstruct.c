@@ -134,13 +134,13 @@ void reserveKernBootStruct(void)
 	}
 	else
 	{
-		// for 10.7 10.8 10.9 10.10 10.11 10.12 10.13
+		// for 10.7 10.8 10.9 10.10 10.11 10.12 10.13 10.14
 		void *oldAddr = bootArgs;
 		bootArgs = (boot_args *)AllocateKernelMemory(sizeof(boot_args));
 		bcopy(oldAddr, bootArgs, sizeof(boot_args));
 	}
 
-	// 10.12 and 10.13 new bootArgs?
+	// 10.12, 10.13 and 10.14 new bootArgs?
 }
 
 //==============================================================================
@@ -289,10 +289,33 @@ void finalizeBootStruct(void)
 	bootArgs->deviceTreeP = (uint32_t)addr;
 	bootArgs->deviceTreeLength = size;
 
+	//
+	// MinusZwei:
+	// Dump the new video struct fields in the old one.
+	// This will avoid a black screen issue with OS X between 10.8 and 10.11
+	//
+	// In order to be 100% safe, the new struct fields will also be seroed
+	// afterwards.
+	//
+	if ( MacOSVerCurrent < MacOSVer2Int("10.12") )
+	{
+		bootArgs->VideoV1.v_baseAddr = bootArgs->Video.v_baseAddr;
+		bootArgs->VideoV1.v_display  = bootArgs->Video.v_display;
+		bootArgs->VideoV1.v_rowBytes = bootArgs->Video.v_rowBytes;
+		bootArgs->VideoV1.v_width    = bootArgs->Video.v_width;
+		bootArgs->VideoV1.v_height   = bootArgs->Video.v_height;
+		bootArgs->VideoV1.v_depth    = bootArgs->Video.v_depth;
+
+		bzero(&bootArgs->Video, sizeof(Boot_Video));
+
+		bootArgs->apfsDataStart = 0;
+		bootArgs->apfsDataSize  = 0;
+	}
+
 	// Copy BootArgs values to older structure
 
 	memcpy(&bootArgsLegacy->CommandLine, &bootArgs->CommandLine, BOOT_LINE_LENGTH);
-	memcpy(&bootArgsLegacy->Video, &bootArgs->Video, sizeof(Boot_Video));
+	memcpy(&bootArgsLegacy->Video, &bootArgs->VideoV1, sizeof(Boot_VideoV1));
 
 	bootArgsLegacy->MemoryMap = bootArgs->MemoryMap;
 	bootArgsLegacy->MemoryMapSize = bootArgs->MemoryMapSize;
