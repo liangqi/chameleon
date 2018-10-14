@@ -31,6 +31,7 @@
 #include "embedded.h"
 #include "pci.h"
 #include "modules.h"
+#include "xml.h"
 
 #if DEBUG
 	#define DBG(x...)	printf(x)
@@ -1391,84 +1392,35 @@ int processBootOptions()
 		addBootArg("kext-dev-mode=1");
 	}
 
-	// Micky1979 (Recovery HD)
-	if (gBootVolume->OSisRecovery)
-	{
-		const char	*rval = 0;
-		config_file_t ocBplist;
-		char  caBp[1024]; //too large ?. On El capitan is 365 bytes.. but we are testing
-		snprintf(caBp, sizeof(caBp), "/com.apple.recovery.boot/com.apple.Boot.plist");
-
-		loadConfigFile(caBp, &ocBplist);
-		rval = getStringForKey(kKernelFlagsKey, &ocBplist);
-
-		if (rval) {
-			addBootArg(rval);
-		}
-	}
-
-	// Micky1979 (Vanilla Installer)
-	if (gBootVolume->OSisInstaller)
-	{
-		const char	*rval = 0;
-		config_file_t ocBplist;
-
-		char  caBp[2048];
-
-		snprintf(caBp, sizeof(caBp), "/.IABootFiles/com.apple.Boot.plist");
-
-		loadConfigFile(caBp, &ocBplist);
-		rval = getStringForKey(kKernelFlagsKey, &ocBplist);
-
-		if (rval) {
-			addBootArg(rval);
-		}
-	}
-
-	// Micky1979 (old Vanilla upgrade)
-	if (gBootVolume->OSisMacOSXUpgrade)
-	{
-		const char	*rval = 0;
-		config_file_t ocBplist;
-		char  caBp[2048];
-
-		snprintf(caBp, sizeof(caBp), "/Mac OS X Install Data/com.apple.Boot.plist");
-
-		loadConfigFile(caBp, &ocBplist);
-		rval = getStringForKey(kKernelFlagsKey, &ocBplist);
-
-		if (rval) {
-			addBootArg(rval);
-		}
-	}
-
-	// Micky1979 (new Vanilla upgrade)
-	if (gBootVolume->OSisOSXUpgrade)
-	{
-		const char	*rval = 0;
-		config_file_t ocBplist;
-		char  caBp[2048];
-		bool found = false;
-		snprintf(caBp, sizeof(caBp), "/macOS Install Data/Locked Files/Boot Files/com.apple.Boot.plist");
-
-		if (!loadConfigFile(caBp, &ocBplist))
+	if (gBootVolume->OSisRecovery || gBootVolume->OSisInstaller || gBootVolume->OSisMacOSXUpgrade || gBootVolume->OSisOSXUpgrade) {
+		if (strlen(gBootVolume->comAppleBoot))
 		{
-			found = true;
-		}
-
-		if (!found) {
-			snprintf(caBp, sizeof(caBp), "/OS X Install Data/com.apple.Boot.plist");
-
-			if (!loadConfigFile(caBp, &ocBplist))
+			int fh = open(gBootVolume->comAppleBoot, 0);
+			if(fh >= 0)
 			{
-				found = true;
-			}
-		}
+				unsigned int plistSize = file_size(fh);
+				if (plistSize > 0)
+				{
+					char *plist = (char*) malloc(plistSize);
+					if (plistSize && read(fh, plist, plistSize) == plistSize)
+					{
+						TagPtr plistPtr, kf;
+						XMLParseFile(plist, &plistPtr);
+						kf = XMLGetProperty(plistPtr, kKernelFlagsKey);
+						if(kf != 0)
+						{
+							addBootArg(kf->string);
+							//printf("kf->string = %s\n", kf->string);
+							//printf("press any key to continue..\n");
+							//getchar();
+						}
+					}
 
-		if (found) {
-			rval = getStringForKey(kKernelFlagsKey, &ocBplist);
-			if (rval) {
-				addBootArg(rval);
+					if(plist)
+					{
+						free(plist);
+					}
+				}
 			}
 		}
 	}
