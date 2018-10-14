@@ -112,6 +112,11 @@ struct bios {
 #define NV_ARCH_C0              0xC0
 #define NV_ARCH_D0              0xD0
 #define NV_ARCH_E0              0xE0
+#define NV_ARCH_F0              0xF0
+#define NV_ARCH_100		0x100
+#define NV_ARCH_110		0x110
+#define NV_ARCH_120		0x120
+#define NV_ARCH_130		0x130
 
 #define CHIPSET_NV03            0x0010
 #define CHIPSET_NV04            0x0020
